@@ -19,14 +19,23 @@ class VRParticles : public VRGeometry {
         VRFunction<int>* fkt = 0;
         VRMaterial* mat = 0;
         GeoPnt3fPropertyRecPtr pos;
-        int N = 1000;
+        int N = 200;
 
         btDiscreteDynamicsWorld* world = 0;
         vector<Particle*> particles;
 
     public:
-        VRParticles();
+        VRParticles(): VRParticles(200){}
+        VRParticles(int particleAmount);
         ~VRParticles();
+
+        void setGroupMaxSize(unsigned int maximum);
+        int getGroupMaxSize();
+        void setDamping(float linear, float angular);
+
+
+        void formCuboidAt(float posx, float posy, float posz, float sx, float sy, float sz);
+        void applyCentralImpulse(float x, float y, float z);
 
         void update(int b = 0, int e = -1);
 };

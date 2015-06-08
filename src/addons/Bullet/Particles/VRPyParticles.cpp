@@ -1,6 +1,8 @@
 #include "VRPyParticles.h"
+#include "core/scripting/VRPyTransform.h"
 #include "core/scripting/VRPyGeometry.h"
 #include "core/scripting/VRPyBaseT.h"
+
 
 template<> PyTypeObject VRPyBaseT<OSG::VRParticles>::type = {
     PyObject_HEAD_INIT(NULL)
@@ -46,9 +48,20 @@ template<> PyTypeObject VRPyBaseT<OSG::VRParticles>::type = {
 
 PyMethodDef VRPyParticles::methods[] = {
     {"getGeometry", (PyCFunction)VRPyParticles::getGeometry, METH_VARARGS, "Get geometry - Geometry getGeometry()" },
+    //{"applyCentralImpulse", (PyCFunction)VRPyParticles::applyCentralImpulse, METH_VARARGS, "Set a short impulse on every particle in a single direction." },
     {NULL}  /* Sentinel */
 };
 
 PyObject* VRPyParticles::getGeometry(VRPyParticles* self) {
     Py_RETURN_TRUE;
 }
+/*
+PyObject* applyCentralImpulse(VRPyParticles* self, PyObject* args) {
+
+    OSG::Vec3f input = VRPyBase::parseVec3f(args);
+
+    if (self->obj == 0) self->obj = new OSG::VRParticles();
+    self->obj->applyCentralImpulse(input);
+    Py_RETURN_TRUE;
+}
+*/
