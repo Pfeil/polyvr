@@ -4,6 +4,7 @@
 #include "core/scene/VRScene.h"
 
 #include <btBulletDynamicsCommon.h>
+#include <BulletSoftBody/btSoftRigidDynamicsWorld.h>
 
 typedef boost::recursive_mutex::scoped_lock BLock;
 
@@ -193,7 +194,7 @@ void VRParticles::setDamping(float linear, float angular) {
     }
 }
 
-void VRParticles::emitCircle(btVector3 pos, btVector3 dir, float angle=0, float jitter=0) {
+/*void VRParticles::emitCircle(btVector3 pos, btVector3 dir, float angle, float jitter) {
     Particle* p = particles[i];
     p->setPosition()
     for (int i=0; i<N; i++) {
@@ -203,4 +204,4 @@ void VRParticles::emitCircle(btVector3 pos, btVector3 dir, float angle=0, float 
         //btTransform t = new btTransform();
         particles[i]->applyCentralImpulse(dir);
     }
-}
+}*/

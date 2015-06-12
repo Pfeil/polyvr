@@ -8,7 +8,7 @@ struct VRPyParticles : VRPyBaseT<OSG::VRParticles> {
     static PyMethodDef methods[];
 
     static PyObject* getGeometry(VRPyParticles* self);
-    //static PyObject* applyCentralImpulse(VRPyParticles* self, PyObject* args);
+    static PyObject* applyCentralImpulse(VRPyParticles* self, PyObject* args);
 
 };
 

@@ -37,6 +37,8 @@ class VRParticles : public VRGeometry {
         void formCuboidAt(float posx, float posy, float posz, float sx, float sy, float sz);
         void applyCentralImpulse(float x, float y, float z);
 
+        //void emitCircle(btVector3 pos, btVector3 dir, float angle=0, float jitter=0);
+
         void update(int b = 0, int e = -1);
 };
 
