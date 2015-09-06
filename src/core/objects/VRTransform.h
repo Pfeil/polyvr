@@ -116,6 +116,7 @@ class VRTransform : public VRObject {
         Matrix getWorldMatrix(bool parentOnly = false);
         Vec3f getWorldPosition(bool parentOnly = false);
         Vec3f getWorldDirection(bool parentOnly = false);
+        Vec3f getWorldUp(bool parentOnly = false);
 
         void setWorldMatrix(Matrix _m);
         void setWorldPosition(Vec3f pos);
@@ -150,7 +151,7 @@ class VRTransform : public VRObject {
         map<string, VRAnimation*> animations;
         void addAnimation(VRAnimation* animation);
         vector<VRAnimation*> getAnimations();
-        void startPathAnimation(path* p, float time, float offset, bool redirect = true, bool loop = false);
+        VRAnimation* startPathAnimation(path* p, float time, float offset, bool redirect = true, bool loop = false);
         void stopAnimation();
 
         /** Print the position of the object in local && world coords **/

@@ -64,7 +64,7 @@ void VRSetup::setScene(VRScene* scene) {
     if (scene == 0) return;
     VRCamera* cam = scene->getActiveCamera();
     if (cam == 0) return;
-    setViewRoot(scene->getRoot(), -1);
+    setViewRoot(scene->getSystemRoot(), -1);
     setViewCamera(cam, -1);
 
     VRMouse* mouse = (VRMouse*)getDevice("mouse");
@@ -73,8 +73,6 @@ void VRSetup::setScene(VRScene* scene) {
     setViewBackground(scene->getBackground());
 
     for (auto w : getWindows()) w.second->setContent(true);
-
-    scene->addCamera(setup_cam);
 
     //scene->initDevices();
 }

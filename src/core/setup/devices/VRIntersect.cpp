@@ -19,7 +19,10 @@ Vec2f VRIntersect_computeTexel(VRIntersection& ins, NodeRecPtr node) {
 
     GeometryRefPtr geo = dynamic_cast<Geometry*>( node->getCore() );
     if (geo == 0) return Vec2f(0,0);
+    auto texcoords = geo->getTexCoords();
+    if (texcoords == 0) return Vec2f(0,0);
     TriangleIterator iter = geo->beginTriangles(); iter.seek( ins.triangle );
+
 
     Matrix m = node->getToWorld();
     m.invert();
@@ -57,26 +60,14 @@ class VRIntersectAction : public IntersectAction {
         }
 };
 
-VRIntersection VRIntersect::intersect(VRObject* tree) {
-    VRDevice* dev = (VRDevice*)this;
-    VRTransform* caster = dev->getBeacon();
-    VRIntersection ins;
-    if (caster == 0) { cout << "Warning: VRIntersect::intersect, caster is 0!\n"; return ins; }
-    if (tree == 0) tree = dynTree;
-    if (tree == 0) return ins;
-
-    if (intersections.count(tree)) ins = intersections[tree];
-    uint now = VRGlobals::get()->CURRENT_FRAME;
-    if (ins.hit && ins.time == now) return ins; // allready found it
-    ins.time = now;
-
-    Line ray = caster->castRay(tree);
+VRIntersection VRIntersect::intersect(VRObject* tree, Line ray) {
     VRIntersectAction iAct;
     //IntersectActionRefPtr iAct = IntersectAction::create();
     iAct.setTravMask(8);
     iAct.setLine(ray);
     iAct.apply(tree->getNode());
 
+    VRIntersection ins;
     ins.hit = iAct.didHit();
     if (ins.hit) {
         ins.object = tree->find(iAct.getHitObject()->getParent());
@@ -96,6 +87,23 @@ VRIntersection VRIntersect::intersect(VRObject* tree) {
 
     if (showHit) cross->setWorldPosition(Vec3f(ins.point));
     return ins;
+}
+
+VRIntersection VRIntersect::intersect(VRObject* tree) {
+    VRDevice* dev = (VRDevice*)this;
+    VRTransform* caster = dev->getBeacon();
+    VRIntersection ins;
+    if (caster == 0) { cout << "Warning: VRIntersect::intersect, caster is 0!\n"; return ins; }
+    if (tree == 0) tree = dynTree;
+    if (tree == 0) return ins;
+
+    if (intersections.count(tree)) ins = intersections[tree];
+    uint now = VRGlobals::get()->CURRENT_FRAME;
+    if (ins.hit && ins.time == now) return ins; // allready found it
+    ins.time = now;
+
+    Line ray = caster->castRay(tree);
+    return intersect(tree, ray);
 }
 
 void VRIntersect::dragCB(VRTransform* caster, VRObject* tree, VRDevice* dev) {

@@ -30,7 +30,8 @@ OSG_BEGIN_NAMESPACE;
 using namespace std;
 using namespace Gtk;
 
-GtkSourceBuffer* VRGuiScripts_sourceBuffer;
+GtkSourceBuffer* VRGuiScripts_sourceBuffer = 0;
+VRScript* lastSelectedScript = 0;
 
 class VRGuiScripts_ModelColumns : public Gtk::TreeModelColumnRecord {
     public:
@@ -89,6 +90,7 @@ VRScript* VRGuiScripts::getSelectedScript() {
     Gtk::TreeModel::Row row = *iter;
     string name = row.get_value(cols.script);
     VRScript* script = VRSceneManager::getCurrent()->getScript(name);
+    lastSelectedScript = script;
 
     return script;
 }
@@ -106,19 +108,20 @@ void VRGuiScripts::setScriptListRow(Gtk::TreeIter itr, VRScript* script, bool on
     int trig_lvl = 0;
     for (auto trig : script->getTriggers()) {
         if (trig.second->trigger == "on_scene_load") trig_lvl |= 1;
-        if (trig.second->trigger == "on_timeout") trig_lvl |= 2;
-        if (trig.second->trigger == "on_device") trig_lvl |= 4;
-        if (trig.second->trigger == "on_socket") trig_lvl |= 8;
-        if (trig.second->trigger == "on_device_drag") trig_lvl |= 16;
-        if (trig.second->trigger == "on_device_drop") trig_lvl |= 32;
+        if (trig.second->trigger == "on_scene_close") trig_lvl |= 2;
+        if (trig.second->trigger == "on_timeout") trig_lvl |= 4;
+        if (trig.second->trigger == "on_device") trig_lvl |= 8;
+        if (trig.second->trigger == "on_socket") trig_lvl |= 16;
+        if (trig.second->trigger == "on_device_drag") trig_lvl |= 32;
+        if (trig.second->trigger == "on_device_drop") trig_lvl |= 64;
     }
 
     if (trig_lvl >= 1) bg = "#AAFF88";
-    if (trig_lvl >= 2) bg = "#FF8866";
-    if (trig_lvl >= 4) bg = "#FFBB33";
-    if (trig_lvl >= 8) bg = "#3388FF";
-    if (trig_lvl >= 16) bg = "#FFCCAA";
-    if (trig_lvl >= 32) bg = "#FFCC88";
+    if (trig_lvl >= 4) bg = "#FF8866";
+    if (trig_lvl >= 8) bg = "#FFBB33";
+    if (trig_lvl >= 16) bg = "#3388FF";
+    if (trig_lvl >= 32) bg = "#FFCCAA";
+    if (trig_lvl >= 64) bg = "#FFCC88";
 
     string time = " ";
     float exec_time = script->getExecutionTime();
@@ -307,6 +310,9 @@ void VRGuiScripts::on_del_clicked() {
 }
 
 void VRGuiScripts::on_select_script() { // selected a script
+    auto adjustment = Glib::RefPtr<Gtk::ScrolledWindow>::cast_static(VRGuiBuilder()->get_object("scrolledwindow4"))->get_vadjustment();
+    if (lastSelectedScript) pages[lastSelectedScript].line = adjustment->get_value();
+
     VRScript* script = VRGuiScripts::getSelectedScript();
     if (script == 0) {
         setToolButtonSensitivity("toolbutton8", false);
@@ -326,15 +332,15 @@ void VRGuiScripts::on_select_script() { // selected a script
     // update editor content && script head
     string core = script->getHead() + script->getCore();
     gtk_text_buffer_set_text(GTK_TEXT_BUFFER(VRGuiScripts_sourceBuffer), core.c_str(), core.size());
+    adjustment->set_value(pages[script].line);
 
     // update arguments liststore
     Glib::RefPtr<Gtk::ListStore> args = Glib::RefPtr<Gtk::ListStore>::cast_static(VRGuiBuilder()->get_object("liststore2"));
     args->clear();
-    map<string, VRScript::arg*> arg_map = script->getArguments();
-    map<string, VRScript::arg*>::iterator itr;
-    if (PyErr_Occurred() != NULL) PyErr_Print();
-    for (itr = arg_map.begin(); itr != arg_map.end(); itr++) {
-        VRScript::arg* a = itr->second;
+
+    //if (PyErr_Occurred() != NULL) PyErr_Print();
+    for (auto ar : script->getArguments()) {
+        VRScript::arg* a = ar.second;
         Gtk::ListStore::Row row = *args->append();
         gtk_list_store_set(args->gobj(), row.gobj(), 0, a->getName().c_str(), -1);
         gtk_list_store_set(args->gobj(), row.gobj(), 1, a->val.c_str(), -1);
@@ -347,7 +353,7 @@ void VRGuiScripts::on_select_script() { // selected a script
     trigs->clear();
     map<string, VRScript::trig*> trig_map = script->getTriggers();
     map<string, VRScript::trig*>::iterator itr2;
-    if (PyErr_Occurred() != NULL) PyErr_Print();
+    //if (PyErr_Occurred() != NULL) PyErr_Print();
     for (itr2 = trig_map.begin(); itr2 != trig_map.end(); itr2++) {
         VRScript::trig* t = itr2->second;
         string key = toString(t->key);
@@ -737,11 +743,10 @@ void VRGuiScripts::on_select_help() {
     Glib::RefPtr<Gtk::TextBuffer> tb  = Glib::RefPtr<Gtk::TextBuffer>::cast_static(VRGuiBuilder()->get_object("pydoc"));
 
     if (type == "module") {
-        vector<string> methods = sm->getPyVRMethods(obj);
-        string doc = "\n";
-        for (uint i=0; i<methods.size(); i++) {
-            string d = sm->getPyVRMethodDoc(mod, methods[i]);
-            doc += methods[i] + "\n\t" + d + "\n\n";
+        string doc = sm->getPyVRDescription(obj) + "\n\n";
+        for (auto method : sm->getPyVRMethods(obj)) {
+            string d = sm->getPyVRMethodDoc(mod, method);
+            doc += method + "\n\t" + d + "\n\n";
         }
         tb->set_text(doc);
     }
@@ -858,7 +863,15 @@ void VRGuiScripts::updateList() {
     Glib::RefPtr<Gtk::ListStore> store = Glib::RefPtr<Gtk::ListStore>::cast_static(VRGuiBuilder()->get_object("script_list"));
     store->clear();
 
-    for (auto script : scene->getScripts()) setScriptListRow(store->append(), script.second);
+    auto oldpages = pages;
+    pages.clear();
+
+    for (auto script : scene->getScripts()) {
+        auto s = script.second;
+        setScriptListRow(store->append(), s);
+        if (oldpages.count(s)) pages[s] = oldpages[s];
+        else pages[s] = page();
+    }
     on_select_script();
 }
 
@@ -945,7 +958,7 @@ VRGuiScripts::VRGuiScripts() {
 
     // fill combolists
     const char *arg_types[] = {"int", "float", "str", "VRPyObjectType", "VRPyTransformType", "VRPyGeometryType", "VRPyLightType", "VRPyLodType", "VRPyDeviceType", "VRPyHapticType", "VRPySocketType"};
-    const char *trigger_types[] = {"none", "on_scene_load", "on_timeout", "on_device", "on_socket"};
+    const char *trigger_types[] = {"none", "on_scene_load", "on_scene_close", "on_timeout", "on_device", "on_socket"};
     const char *device_types[] = {"mouse", "keyboard", "flystick", "haptic", "mobile", "vrpn_device"}; // TODO: get from a list in devicemanager || something
     const char *trigger_states[] = {"Pressed", "Released", "Drag", "Drop", "To edge", "From edge"};
     const char *script_types[] = {"Python", "GLSL", "HTML"};

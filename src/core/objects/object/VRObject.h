@@ -7,6 +7,7 @@
 #include <OpenSG/OSGVector.h>
 
 #include "core/utils/VRName.h"
+#include "core/utils/VRStorage.h"
 
 namespace xmlpp{ class Element; }
 class VRAttachment;
@@ -36,7 +37,7 @@ class VRGlobals {
         static VRGlobals* get();
 };
 
-class VRObject : public VRName {
+class VRObject : public VRName, public VRStorage {
     private:
         bool specialized = false;
         VRObject* parent = 0;
@@ -46,6 +47,7 @@ class VRObject : public VRName {
         bool pickable = false;
         bool visible = true;
         bool intern = false;
+        int persistency = 666;
         unsigned int graphChanged = 0; //is frame number
 
         map<string, VRAttachment*> attachments;
@@ -83,6 +85,8 @@ class VRObject : public VRName {
         string getType();
 
         bool getIntern();
+        void setPersistency(int p);
+        int getPersistency();
 
         VRObject* getRoot();
         string getPath();
@@ -98,7 +102,7 @@ class VRObject : public VRName {
         vector<VRObject*> getChildrenWithAttachment(string name);
 
         /** Set the object OSG core && specify the type**/
-        void setCore(NodeCoreRecPtr c, string _type);
+        void setCore(NodeCoreRecPtr c, string _type, bool force = false);
 
         /** Returns the object OSG core **/
         NodeCoreRecPtr getCore();
@@ -156,6 +160,7 @@ class VRObject : public VRName {
         VRObject* find(VRObject* obj);
         VRObject* find(string Name);
         VRObject* find(int id);
+        vector<VRObject*> findAll(string Name, vector<VRObject*> res = vector<VRObject*>() );
 
         vector<VRObject*> filterByType(string Type, vector<VRObject*> res = vector<VRObject*>() );
 

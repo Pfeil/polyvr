@@ -14,6 +14,7 @@ using namespace std;
 class Material; OSG_GEN_CONTAINERPTR(Material);
 class Image; OSG_GEN_CONTAINERPTR(Image);
 class ShaderProgram; OSG_GEN_CONTAINERPTR(ShaderProgram);
+class ChunkMaterial; OSG_GEN_CONTAINERPTR(ChunkMaterial);
 class MultiPassMaterial; OSG_GEN_CONTAINERPTR(MultiPassMaterial);
 
 struct VRMatData;
@@ -26,6 +27,9 @@ class VRMaterial : public VRObject {
     public:
         static map<string, VRMaterial*> materials;
         static map<MaterialRecPtr, VRMaterial*> materialsByPtr;
+
+        string constructShaderVP(VRMatData* data);
+        string constructShaderFP(VRMatData* data);
 
     protected:
         MultiPassMaterialRecPtr passes;
@@ -44,6 +48,8 @@ class VRMaterial : public VRObject {
     public:
         VRMaterial(string name);
         virtual ~VRMaterial();
+
+        void setDeffered(bool b);
 
         void setActivePass(int i);
         int getActivePass();
@@ -66,6 +72,7 @@ class VRMaterial : public VRObject {
         /** Load a texture && apply it to the mesh as new material **/
         void setTexture(string img_path, bool alpha = true);
         void setTexture(ImageRecPtr img, bool alpha = true);
+        void setTexture(ImageRecPtr img, int type, bool alpha);
         void setTexture(char* data, int format, Vec3i dims, bool isfloat);
         void setTextureParams(int min, int mag, int envMode, int wrapS, int wrapT);
         void setTextureType(string type);
@@ -98,6 +105,8 @@ class VRMaterial : public VRObject {
         float getTransparency();
 
         void initShaderChunk();
+        void remShaderChunk();
+        void setDefaultVertexShader();
         void setVertexShader(string s);
         void setFragmentShader(string s);
         void setGeometryShader(string s);
@@ -123,7 +132,8 @@ class VRMaterial : public VRObject {
         bool isLit();
 
         /** Returns the mesh material **/
-        MaterialRecPtr getMaterial();
+        MultiPassMaterialRecPtr getMaterial();
+        ChunkMaterialRecPtr getMaterial(int i);
 
         /** Returns the texture || 0 **/
         ImageRecPtr getTexture();

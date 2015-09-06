@@ -40,46 +40,56 @@ class VRDefShading {
 
         };
 
+        string dsGBufferVPFile, dsGBufferFPFile;
+        string dsAmbientVPFile, dsAmbientFPFile;
+        string ssaoAmbientVPFile, ssaoAmbientFPFile;
+        string dsDirLightVPFile, dsDirLightFPFile, dsDirLightShadowFPFile;
+        string dsPointLightVPFile, dsPointLightFPFile, dsPointLightShadowFPFile;
+        string dsSpotLightVPFile, dsSpotLightFPFile, dsSpotLightShadowFPFile;
+        string dsUnknownFile = "unknownFile";
+
         NodeRecPtr                   dsStageN;
         DeferredShadingStageRecPtr   dsStage;
-
         vector<LightInfo>         lightInfos;
-
-
-        Int32                          currentLight;
-
         UInt32                         shadowMapWidth;
         UInt32                         shadowMapHeight;
 
         ShadowTypeE defaultShadowType;
         int shadowRes;
         float shadowColor;
+        bool initiated = false;
+        bool enabled = false;
+        VRObject* stageObject = 0;
+
+        SimpleStageRecPtr ssaoStage;
+        bool ssao_enabled = false;
+        VRObject* ssaoObject = 0;
+
+        void initSSAO();
 
         void init();
 
     protected:
-        bool dsInit;
-
         void initDeferredShading(VRObject* o);
+        void initSSAO(VRObject* o);
 
     public:
         VRDefShading();
 
+        void setDefferedShading(bool b);
+        bool getDefferedShading();
+
+        void setSSAO(bool b);
+        bool getSSAO();
+
         void setDSCamera(VRCamera* cam);
-
         void addDSLight(VRLight* light);
-
         void addDSLight(LightRecPtr light, string type, bool shadows = false);
-
+        void subLight(UInt32 lightIdx);
         void setShadow(LightInfo &li);
 
-        // file containing vertex shader code for the light type
         const std::string &getLightVPFile(LightEngine::LightTypeE lightType);
-
-        // file containing fragment shader code for the light type
         const std::string &getLightFPFile( LightEngine::LightTypeE lightType, ShadowTypeE shadowType);
-
-        void subLight(UInt32 lightIdx);
 };
 
 OSG_END_NAMESPACE;

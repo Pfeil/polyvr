@@ -32,6 +32,7 @@
 #include "core/objects/VRCamera.h"
 #include "core/tools/VRRecorder.h"
 #include "core/utils/VRLogger.h"
+#include "VRGuiManager.h"
 
 OSG_BEGIN_NAMESPACE;
 using namespace std;
@@ -54,9 +55,11 @@ void VRGuiBits::on_view_option_toggle(VRVisualLayer* l, Gtk::ToggleToolButton* t
 }
 
 void VRGuiBits_on_camera_changed(GtkComboBox* cb, gpointer data) {
-    int i = gtk_combo_box_get_active(cb);
+    char* cam = gtk_combo_box_get_active_text(cb);
+    if (cam == 0) return;
     VRScene* scene = VRSceneManager::getCurrent();
-    scene->setActiveCamera(i);
+    string name = string(cam);
+    scene->setActiveCamera(name);
 
     VRGuiSignals::get()->getSignal("camera_changed")->trigger<VRDevice>();
 }
@@ -122,26 +125,30 @@ void VRGuiBits_on_internal_update(int i) {
 // --------------------------
 
 Glib::RefPtr<Gtk::TextBuffer> terminal;
-Gtk::ScrolledWindow* swin;
 
 void VRGuiBits::write_to_terminal(string s) {
     boost::mutex::scoped_lock lock(msg_mutex);
     msg_queue.push(s);
 }
 
+void VRGuiBits::clear_terminal() {
+    boost::mutex::scoped_lock lock(msg_mutex);
+    std::queue<string>().swap(msg_queue);
+    terminal->set_text("");
+}
+
 void VRGuiBits::update_terminal() {
     boost::mutex::scoped_lock lock(msg_mutex);
-    bool u = !msg_queue.empty();
     while(!msg_queue.empty()) {
         terminal->insert(terminal->end(), msg_queue.front());
 		msg_queue.pop();
     }
-    if (u) on_terminal_changed();
 }
 
-void VRGuiBits::on_terminal_changed() { // not called
+void VRGuiBits::on_terminal_changed() {
+    if (swin == 0) return;
     auto a = swin->get_vadjustment();
-    a->set_value(a->get_upper());
+    a->set_value(a->get_upper() - a->get_page_size());
 }
 
 void VRGuiBits::hideAbout(int i) {
@@ -232,6 +239,9 @@ VRGuiBits::VRGuiBits() {
     setToolButtonCallback("toolbutton17", VRGuiBits_on_about_clicked);
     setToolButtonCallback("toolbutton18", VRGuiBits_on_internal_clicked);
 
+    setToolButtonCallback("toolbutton24", sigc::mem_fun(*this, &VRGuiBits::clear_terminal));
+    setToolButtonCallback("toolbutton25", sigc::mem_fun(*this, &VRGuiBits::on_terminal_changed));
+
     setButtonCallback("button14", VRGuiBits_on_new_cancel_clicked);
     setButtonCallback("button21", VRGuiBits_on_internal_close_clicked);
 
@@ -279,6 +289,8 @@ VRGuiBits::VRGuiBits() {
     VRGuiBuilder()->get_widget("hbox15", box);
     box->pack_start(*swin, true, true);
     box->show_all();
+
+    swin->get_vadjustment()->signal_changed().connect( sigc::mem_fun(*this, &VRGuiBits::on_terminal_changed) );
 
     VRFunction<int>* fkt = new VRFunction<int>( "IntMonitor_guiUpdate", VRGuiBits_on_internal_update );
     VRSceneManager::get()->addUpdateFkt(fkt);

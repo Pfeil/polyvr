@@ -110,7 +110,16 @@ int path::addPoint(VRTransform* t) {
     return points.size() - 1;
 }
 
-float path::getLength() { return (points[points.size()-1].p - points[0].p).length();}
+int path::size() { return points.size(); }
+float path::getLength() {
+    float l = 0;
+    for (int i=1; i<size(); i++) {
+        auto p1 = points[i-1].p;
+        auto p2 = points[i].p;
+        l += (p2-p1).length();
+    }
+    return l;
+}
 
 void path::setPoint(int i, Vec3f p, Vec3f n, Vec3f c, Vec3f u) {
     if (i < 0 || i >= (int)points.size()) return;
@@ -128,7 +137,7 @@ void path::compute(int N) {
     if (points.size() <= 1) return;
 
     iterations = N;
-    int tN = N*(points.size()-1);
+    int tN = N*(points.size()-1) - (points.size()-2); // (points.size()-2) is the number of segments minus one
     positions.assign(tN, Vec3f());
     directions.assign(tN, Vec3f());
     up_vectors.assign(tN, Vec3f());
@@ -157,10 +166,10 @@ void path::compute(int N) {
         Vec3f u = (p1.u+p2.u)*0.5;//x.cross(n);
         u.normalize();
 
-        cubicBezier    (_pts+N*i, N, p1.p, p2.p, h1, h2);
-        quadraticBezier(_drs+N*i, N, p1.n, p2.n, n);
-        quadraticBezier(_ups+N*i, N, p1.u, p2.u, u);
-        linearBezier   (_cls+N*i, N, p1.c, p2.c);
+        cubicBezier    (_pts+(N-1)*i, N, p1.p, p2.p, h1, h2);
+        quadraticBezier(_drs+(N-1)*i, N, p1.n, p2.n, n);
+        quadraticBezier(_ups+(N-1)*i, N, p1.u, p2.u, u);
+        linearBezier   (_cls+(N-1)*i, N, p1.c, p2.c);
     }
 }
 
@@ -196,6 +205,14 @@ Vec3f path::getColor(float t) { return interp(colors, t); }
 void path::getOrientation(float t, Vec3f& dir, Vec3f& up) {
     dir = interp(directions, t)*direction;
     up = interp(up_vectors, t);
+}
+
+void path::clear() {
+    points.clear();
+    positions.clear();
+    directions.clear();
+    up_vectors.clear();
+    colors.clear();
 }
 
 

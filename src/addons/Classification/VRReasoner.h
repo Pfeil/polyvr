@@ -7,13 +7,15 @@
 
 using namespace std;
 
-class VROntology;
-class VROntologyInstance;
+
+#include "VROntology.h"
+//class VROntology;
+//class VREntity;
 
 class VRReasoner {
     public:
         struct Result {
-            vector<VROntologyInstance*> instances;
+            vector<VREntity*> instances;
         };
 
         static vector<string> split(string s, string d);

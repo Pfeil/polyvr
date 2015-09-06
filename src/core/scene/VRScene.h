@@ -2,7 +2,6 @@
 #define VRSCENE_H_INCLUDED
 
 #include "VRObjectManager.h"
-#include "VRLightManager.h"
 #include "VRCameraManager.h"
 #include "VRAnimationManager.h"
 #include "VRPhysicsManager.h"
@@ -24,7 +23,6 @@ class VRObject;
 class VRVisualLayer;
 
 class VRScene : public VRObjectManager,
-                public VRLightManager,
                 public VRCameraManager,
                 public VRAnimationManager,
                 public VRPhysicsManager,
@@ -68,8 +66,9 @@ class VRScene : public VRObjectManager,
         VRObject* get(int ID);
         VRObject* get(string name);
         VRObject* getRoot();
+        VRObject* getSystemRoot();
 
-        void setActiveCamera(int i);
+        void setActiveCamera(string name = "");
 
         void printTree();
         void showReferentials(bool b, VRObject* o);

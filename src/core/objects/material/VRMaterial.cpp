@@ -28,6 +28,7 @@
 #include "VRVideo.h"
 #include "core/tools/VRQRCode.h"
 #include <libxml++/nodes/element.h>
+#include <boost/filesystem.hpp>
 
 OSG_BEGIN_NAMESPACE;
 using namespace std;
@@ -51,6 +52,7 @@ struct VRMatData {
     ShaderProgramRecPtr fProgram;
     ShaderProgramRecPtr gProgram;
     VRVideo* video = 0;
+    bool deffered = false;
 
     string vertexScript;
     string fragmentScript;
@@ -58,6 +60,13 @@ struct VRMatData {
 
     ~VRMatData() {
         if (video) delete video;
+    }
+
+    int getTextureDimension() {
+        if (texChunk == 0) return 0;
+        ImageRecPtr img = texChunk->getImage();
+        if (img == 0) return 0;
+        return img->getDimension();
     }
 
     void reset() {
@@ -79,6 +88,7 @@ struct VRMatData {
         shaderChunk = 0;
         clipChunk = 0;
         stencilChunk = 0;
+        deffered = false;
 
         colChunk->setDiffuse( Color4f(1, 1, 1, 1) );
         colChunk->setAmbient( Color4f(0.3, 0.3, 0.3, 1) );
@@ -131,6 +141,73 @@ VRMaterial::VRMaterial(string name) : VRObject(name) {
 }
 
 VRMaterial::~VRMaterial() { for (auto m : mats) delete m; }
+
+string VRMaterial::constructShaderVP(VRMatData* data) {
+    int texD = data->getTextureDimension();
+
+    string vp;
+    vp += "#version 120\n";
+    vp += "attribute vec4 osg_Vertex;\n";
+    vp += "attribute vec3 osg_Normal;\n";
+    //vp += "attribute vec4 osg_Color;\n";
+    if (texD == 2) vp += "attribute vec2 osg_MultiTexCoord0;\n";
+    if (texD == 3) vp += "attribute vec3 osg_MultiTexCoord0;\n";
+    vp += "varying vec4 vertPos;\n";
+    vp += "varying vec3 vertNorm;\n";
+    vp += "varying vec3 color;\n";
+    vp += "void main(void) {\n";
+    vp += "  vertPos = gl_ModelViewMatrix * osg_Vertex;\n";
+    vp += "  vertNorm = gl_NormalMatrix * osg_Normal;\n";
+    if (texD == 2) vp += "  gl_TexCoord[0] = vec4(osg_MultiTexCoord0,0.0,0.0);\n";
+    if (texD == 3) vp += "  gl_TexCoord[0] = vec4(osg_MultiTexCoord0,0.0);\n";
+    vp += "  color  = gl_Color.rgb;\n";
+    vp += "  gl_Position    = gl_ModelViewProjectionMatrix*osg_Vertex;\n";
+    vp += "}\n";
+    return vp;
+}
+
+string VRMaterial::constructShaderFP(VRMatData* data) {
+    int texD = data->getTextureDimension();
+
+    string fp;
+    fp += "#version 120\n";
+    fp += "varying vec4 vertPos;\n";
+    fp += "varying vec3 vertNorm;\n";
+    fp += "varying vec3 color;\n";
+    fp += "float luminance(vec3 col) { return dot(col, vec3(0.3, 0.59, 0.11)); }\n";
+    if (texD == 2) fp += "uniform sampler2D tex0;\n";
+    if (texD == 3) fp += "uniform sampler3D tex0;\n";
+    fp += "void main(void) {\n";
+    fp += "  vec3 pos = vertPos.xyz / vertPos.w;\n";
+    if (texD == 0) fp += "  vec3 diffCol = color;\n";
+    if (texD == 2) fp += "  vec3 diffCol = texture2D(tex0, gl_TexCoord[0].xy).rgb;\n";
+    if (texD == 3) fp += "  vec3 diffCol = texture3D(tex0, gl_TexCoord[0].xyz).rgb;\n";
+    fp += "  float ambVal  = luminance(diffCol);\n";
+    fp += "  gl_FragData[0] = vec4(pos, ambVal);\n";
+    fp += "  gl_FragData[1] = vec4(normalize(vertNorm), 0);\n";
+    fp += "  gl_FragData[2] = vec4(diffCol, 0);\n";
+    fp += "}\n";
+    return fp;
+}
+
+void VRMaterial::setDeffered(bool b) {
+    if (b) {
+        for (uint i=0; i<mats.size(); i++) {
+            if (mats[i]->shaderChunk != 0) continue;
+            mats[i]->deffered = true;
+            setActivePass(i);
+            setVertexShader( constructShaderVP(mats[i]) );
+            setFragmentShader( constructShaderFP(mats[i]) );
+        }
+    } else {
+        for (uint i=0; i<mats.size(); i++) {
+            if (!mats[i]->deffered) continue;
+            mats[i]->deffered = false;
+            setActivePass(i);
+            remShaderChunk();
+        }
+    }
+}
 
 void VRMaterial::clearAll() {
     for (auto m : materials) delete m.second;
@@ -318,7 +395,8 @@ void VRMaterial::setMaterial(MaterialRecPtr m) {
     if (dynamic_pointer_cast<SwitchMaterial>(m)) cout << "   SwitchMaterial" << endl;
 }
 
-MaterialRecPtr VRMaterial::getMaterial() { return passes; }
+MultiPassMaterialRecPtr VRMaterial::getMaterial() { return passes; }
+ChunkMaterialRecPtr VRMaterial::getMaterial(int i) { return mats[i]->mat; }
 
 void VRMaterial::setTextureParams(int min, int mag, int envMode, int wrapS, int wrapT) {
     auto md = mats[activePass];
@@ -334,10 +412,18 @@ void VRMaterial::setTextureParams(int min, int mag, int envMode, int wrapS, int 
 
 /** Load a texture && apply it to the mesh as new material **/
 void VRMaterial::setTexture(string img_path, bool alpha) { // TODO: improve with texture map
+    if (boost::filesystem::exists(img_path))
+        img_path = boost::filesystem::canonical(img_path).string();
     auto md = mats[activePass];
     if (md->texture == 0) md->texture = Image::create();
     md->texture->read(img_path.c_str());
     setTexture(md->texture, alpha);
+}
+
+void VRMaterial::setTexture(ImageRecPtr img, int type, bool alpha) {
+    setTexture(img, alpha);
+    auto md = mats[activePass];
+    if (type != -1) md->texChunk->setInternalFormat(type);
 }
 
 void VRMaterial::setTexture(ImageRecPtr img, bool alpha) {
@@ -380,6 +466,7 @@ void VRMaterial::setTextureType(string type) {
 void VRMaterial::setQRCode(string s, Vec3f fg, Vec3f bg, int offset) {
     createQRCode(s, this, fg, bg, offset);
     auto md = mats[activePass];
+    if (md->texChunk == 0) { md->texChunk = TextureObjChunk::create(); md->mat->addChunk(md->texChunk); }
     md->texChunk->setMagFilter (GL_NEAREST);
     md->texChunk->setMinFilter (GL_NEAREST_MIPMAP_NEAREST);
 }
@@ -538,6 +625,7 @@ void VRMaterial::setTexture(char* data, int format, Vec3i dims, bool isfloat) {
     img->set( pf, dims[0], dims[1], dims[2], 1, 1, 0, (const UInt8*)data, f);
     if (format == 4) setTexture(img, true);
     if (format == 3) setTexture(img, false);
+    setShaderParameter<int>("is3DTexture", dims[2] > 1);
 }
 
 void VRMaterial::initShaderChunk() {
@@ -557,7 +645,38 @@ void VRMaterial::initShaderChunk() {
     md->vProgram->addOSGVariable("OSGViewportSize");
 }
 
+void VRMaterial::remShaderChunk() {
+    auto md = mats[activePass];
+    if (md->shaderChunk == 0) return;
+    md->mat->subChunk(md->shaderChunk);
+    md->vProgram = 0;
+    md->fProgram = 0;
+    md->gProgram = 0;
+    md->shaderChunk = 0;
+}
+
 ShaderProgramRecPtr VRMaterial::getShaderProgram() { return mats[activePass]->vProgram; }
+
+void VRMaterial::setDefaultVertexShader() {
+    auto md = mats[activePass];
+    int texD = md->getTextureDimension();
+
+    string vp;
+    vp += "#version 120\n";
+    vp += "attribute vec4 osg_Vertex;\n";
+    //vp += "attribute vec3 osg_Normal;\n";
+    //vp += "attribute vec4 osg_Color;\n";
+    if (texD == 2) vp += "attribute vec2 osg_MultiTexCoord0;\n";
+    if (texD == 3) vp += "attribute vec3 osg_MultiTexCoord0;\n";
+    vp += "void main(void) {\n";
+    //vp += "  gl_Normal = gl_NormalMatrix * osg_Normal;\n";
+    if (texD == 2) vp += "  gl_TexCoord[0] = vec4(osg_MultiTexCoord0,0.0,0.0);\n";
+    if (texD == 3) vp += "  gl_TexCoord[0] = vec4(osg_MultiTexCoord0,0.0);\n";
+    vp += "  gl_Position    = gl_ModelViewProjectionMatrix*osg_Vertex;\n";
+    vp += "}\n";
+
+    setVertexShader(vp);
+}
 
 void VRMaterial::setVertexShader(string s) {
     initShaderChunk();
@@ -602,6 +721,7 @@ void VRMaterial::setMagMinFilter(string mag, string min) {
     if (min == "GL_LINEAR_MIPMAP_LINEAR") Min = GL_LINEAR_MIPMAP_LINEAR;
 
     auto md = mats[activePass];
+    if (md->texChunk == 0) { md->texChunk = TextureObjChunk::create(); md->mat->addChunk(md->texChunk); }
     md->texChunk->setMagFilter(Mag);
     md->texChunk->setMinFilter(Min);
 }

@@ -1,5 +1,58 @@
+#include <boost/bind.hpp>
+
 template<class T> PyTypeObject* VRPyBaseT<T>::typeRef = &VRPyBaseT<T>::type;
 template<class T> VRPyBaseT<T>::VRPyBaseT() {;}
+
+template <typename T>
+bool VRPyBaseT<T>::check(PyObject* o) { return typeRef == o->ob_type; }
+
+template <typename T>
+void VRPyBase::execPyCall(PyObject* pyFkt, PyObject* pArgs, T t) {
+    if (pyFkt == 0) return;
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    if (PyErr_Occurred() != NULL) PyErr_Print();
+
+    PyTuple_SetItem(pArgs, pySize(pArgs)-1, toPyObject(t));
+    PyObject_CallObject(pyFkt, pArgs);
+
+    //Py_XDECREF(pArgs); Py_DecRef(pyFkt); // TODO!!
+
+    if (PyErr_Occurred() != NULL) PyErr_Print();
+    PyGILState_Release(gstate);
+}
+
+template <typename T>
+VRFunction<T>* VRPyBase::parseCallback(PyObject* args) {
+	PyObject* pyFkt = 0;
+	PyObject* pArgs = 0;
+    if (pySize(args) == 1) if (! PyArg_ParseTuple(args, "O", &pyFkt)) return 0;
+    if (pySize(args) == 2) if (! PyArg_ParseTuple(args, "OO", &pyFkt, &pArgs)) return 0;
+	if (pyFkt == 0) return 0;
+    Py_IncRef(pyFkt);
+
+    if (pArgs == 0) pArgs = PyTuple_New(0);
+    else if (string(pArgs->ob_type->tp_name) == "list") pArgs = PyList_AsTuple(pArgs);
+    _PyTuple_Resize(&pArgs, pySize(pArgs)+1);
+
+    return new VRFunction<T>( "pyExecCall", boost::bind(VRPyBase::execPyCall<T>, pyFkt, pArgs, _1) );
+}
+
+template <class T, class t>
+bool VRPyBase::pyListToVector(PyObject* o, T& vec) {
+    PyObject *pi, *pj;
+    t tmp;
+    Py_ssize_t N = PyList_Size(o);
+
+    for (Py_ssize_t i=0; i<N; i++) {
+        pi = PyList_GetItem(o, i);
+        for (Py_ssize_t j=0; j<PyList_Size(pi); j++) {
+            pj = PyList_GetItem(pi, j);
+            tmp[j] = PyFloat_AsDouble(pj);
+        }
+        vec.push_back(tmp);
+    }
+    return true;
+}
 
 template<class T>
 PyObject* VRPyBaseT<T>::fromPtr(T* obj) {
@@ -40,7 +93,7 @@ template<class T> PyObject* VRPyBaseT<T>::New_toZero(PyTypeObject *type, PyObjec
 template<class T>
 PyObject* VRPyBaseT<T>::New_VRObjects(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     VRPyBaseT<T>* self = (VRPyBaseT<T> *)New_named(type, args, kwds);
-    if (self != NULL) self->obj->addAttachment("dynamicaly_generated", 0);
+    if (self != NULL) self->obj->setPersistency(0);
     return (PyObject *)self;
 }
 
@@ -49,14 +102,14 @@ PyObject* VRPyBaseT<T>::New_VRObjects_optional(PyTypeObject *type, PyObject *arg
     VRPyBaseT<T>* self = 0;
     if (pySize(args) == 0) self = (VRPyBaseT<T> *)New(type, args, kwds);
     else self = (VRPyBaseT<T> *)New_named(type, args, kwds);
-    if (self != NULL) self->obj->addAttachment("dynamicaly_generated", 0);
+    if (self != NULL) self->obj->setPersistency(0);
     return (PyObject *)self;
 }
 
 template<class T>
 PyObject* VRPyBaseT<T>::New_VRObjects_unnamed(PyTypeObject *type, PyObject *args, PyObject *kwds) {
     VRPyBaseT<T>* self = (VRPyBaseT<T> *)New(type, args, kwds);
-    if (self != NULL) self->obj->addAttachment("dynamicaly_generated", 0);
+    if (self != NULL) self->obj->setPersistency(0);
     return (PyObject *)self;
 }
 

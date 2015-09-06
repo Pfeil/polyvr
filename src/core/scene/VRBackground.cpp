@@ -77,9 +77,9 @@ VRBackground::VRBackground () {
     store("type", &type);
     store("color", &color);
     store("path", &path);
+    store("format", &format);
 }
 
-BackgroundRecPtr VRBackground::getBackground() { return bg; }
 void VRBackground::setBackground(TYPE t) {
     type = t;
     switch(t) {
@@ -113,6 +113,9 @@ void VRBackground::setBackgroundPath(string s) {
     setBackground(TYPE(type));
 }
 
+BackgroundRecPtr VRBackground::getBackground() { return bg; }
+void VRBackground::setSkyBGExtension(string f) { format = f; updateSkyTextures(); }
+string VRBackground::getSkyBGExtension() { return format; }
 VRBackground::TYPE VRBackground::getBackgroundType() { return TYPE(type); }
 Color3f VRBackground::getBackgroundColor() { return color; }
 string VRBackground::getBackgroundPath() { return path; }
@@ -122,20 +125,6 @@ void VRBackground::updateBackground() {
 }
 
 void VRBackground::update() { setBackground(TYPE(type)); }
-
-/*void VRBackground::saveBackground(xmlpp::Element* e) {
-    e->set_attribute("type", toString(type));
-    e->set_attribute("color", toString(Vec3f(color)));
-    e->set_attribute("path", path);
-}
-
-void VRBackground::loadBackground(xmlpp::Element* e) {
-    if (e == 0) return;
-    type = TYPE(toInt( e->get_attribute("type")->get_value() ));
-    color = toVec3f( e->get_attribute("color")->get_value() );
-    path = e->get_attribute("path")->get_value();
-    setBackground(type);
-}*/
 
 
 OSG_END_NAMESPACE;

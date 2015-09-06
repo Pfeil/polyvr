@@ -152,6 +152,7 @@
 			<Add option="-lboost_program_options" />
 			<Add option="-lboost_serialization" />
 			<Add option="-lboost_filesystem" />
+			<Add option="-lrt" />
 			<Add option="-ljpeg" />
 			<Add option="-lpng" />
 			<Add option="-lz" />
@@ -188,6 +189,7 @@
 			<Add directory="/usr/lib/1.4" />
 			<Add directory="/usr/lib" />
 			<Add directory="/usr/lib/x86_64-linux-gnu" />
+			<Add directory="/usr/local/cuda/lib64" />
 		</Linker>
 		<ExtraCommands>
 			<Add after='/bin/bash -c &quot;cp -u -p ressources/cef/icudtl.dat bin/Debug/ 2&gt;/dev/null&quot;' />
@@ -235,6 +237,7 @@
 		<Unit filename="src/addons/Engineering/CSG/CGALTypedefs.h" />
 		<Unit filename="src/addons/Engineering/CSG/CSGGeometry.cpp" />
 		<Unit filename="src/addons/Engineering/CSG/CSGGeometry.h" />
+		<Unit filename="src/addons/Engineering/CSG/CSGGeometryAlgorithms.cpp" />
 		<Unit filename="src/addons/Engineering/CSG/Octree/Octree.h" />
 		<Unit filename="src/addons/Engineering/CSG/PolyhedronBuilder.h" />
 		<Unit filename="src/addons/Engineering/CSG/VRPyCSG.cpp" />
@@ -276,6 +279,10 @@
 		<Unit filename="src/addons/Engineering/VRProfile.h" />
 		<Unit filename="src/addons/Engineering/VRPyNumberingEngine.cpp" />
 		<Unit filename="src/addons/Engineering/VRPyNumberingEngine.h" />
+		<Unit filename="src/addons/Engineering/VRPyRobotArm.cpp" />
+		<Unit filename="src/addons/Engineering/VRPyRobotArm.h" />
+		<Unit filename="src/addons/Engineering/VRRobotArm.cpp" />
+		<Unit filename="src/addons/Engineering/VRRobotArm.h" />
 		<Unit filename="src/addons/Factory/VRFactory.h" />
 		<Unit filename="src/addons/Factory/VRLogistics.h" />
 		<Unit filename="src/addons/Factory/VRMechanism.h" />
@@ -319,6 +326,7 @@
 		<Unit filename="src/addons/RealWorld/OSM/OSMWay.h" />
 		<Unit filename="src/addons/RealWorld/RealWorld.cpp" />
 		<Unit filename="src/addons/RealWorld/RealWorld.h" />
+		<Unit filename="src/addons/RealWorld/StreetAlgos.cpp" />
 		<Unit filename="src/addons/RealWorld/StreetAlgos.h" />
 		<Unit filename="src/addons/RealWorld/StreetBorder.h" />
 		<Unit filename="src/addons/RealWorld/TestMover.h" />
@@ -441,6 +449,8 @@
 		<Unit filename="src/core/networking/VRPing.h" />
 		<Unit filename="src/core/networking/VRProtocol.cpp" />
 		<Unit filename="src/core/networking/VRProtocol.h" />
+		<Unit filename="src/core/networking/VRSharedMemory.cpp" />
+		<Unit filename="src/core/networking/VRSharedMemory.h" />
 		<Unit filename="src/core/networking/VRSocket.cpp" />
 		<Unit filename="src/core/networking/VRSocket.h" />
 		<Unit filename="src/core/networking/mongoose/mongoose.c">
@@ -504,8 +514,6 @@
 		<Unit filename="src/core/scene/VRCameraManager.h" />
 		<Unit filename="src/core/scene/VRDefShading.cpp" />
 		<Unit filename="src/core/scene/VRDefShading.h" />
-		<Unit filename="src/core/scene/VRLightManager.cpp" />
-		<Unit filename="src/core/scene/VRLightManager.h" />
 		<Unit filename="src/core/scene/VRMaterialManager.cpp" />
 		<Unit filename="src/core/scene/VRMaterialManager.h" />
 		<Unit filename="src/core/scene/VRObjectManager.cpp" />
@@ -526,15 +534,23 @@
 		<Unit filename="src/core/scene/VRThreadManager.h" />
 		<Unit filename="src/core/scene/import/VRCOLLADA.cpp" />
 		<Unit filename="src/core/scene/import/VRCOLLADA.h" />
+		<Unit filename="src/core/scene/import/VRDXF.cpp" />
+		<Unit filename="src/core/scene/import/VRDXF.h" />
 		<Unit filename="src/core/scene/import/VRImport.cpp" />
 		<Unit filename="src/core/scene/import/VRImport.h" />
 		<Unit filename="src/core/scene/import/VRPLY.cpp" />
 		<Unit filename="src/core/scene/import/VRPLY.h" />
+		<Unit filename="src/core/scripting/VRPyAnalyticGeometry.cpp" />
+		<Unit filename="src/core/scripting/VRPyAnalyticGeometry.h" />
 		<Unit filename="src/core/scripting/VRPyAnimation.cpp" />
 		<Unit filename="src/core/scripting/VRPyAnimation.h" />
+		<Unit filename="src/core/scripting/VRPyAnnotationEngine.cpp" />
+		<Unit filename="src/core/scripting/VRPyAnnotationEngine.h" />
 		<Unit filename="src/core/scripting/VRPyBase.cpp" />
 		<Unit filename="src/core/scripting/VRPyBase.h" />
 		<Unit filename="src/core/scripting/VRPyBaseT.h" />
+		<Unit filename="src/core/scripting/VRPyCamera.cpp" />
+		<Unit filename="src/core/scripting/VRPyCamera.h" />
 		<Unit filename="src/core/scripting/VRPyClipPlane.cpp" />
 		<Unit filename="src/core/scripting/VRPyClipPlane.h" />
 		<Unit filename="src/core/scripting/VRPyColorChooser.cpp" />
@@ -561,6 +577,8 @@
 		<Unit filename="src/core/scripting/VRPyMaterial.h" />
 		<Unit filename="src/core/scripting/VRPyMenu.cpp" />
 		<Unit filename="src/core/scripting/VRPyMenu.h" />
+		<Unit filename="src/core/scripting/VRPyMobile.cpp" />
+		<Unit filename="src/core/scripting/VRPyMobile.h" />
 		<Unit filename="src/core/scripting/VRPyNavPreset.cpp" />
 		<Unit filename="src/core/scripting/VRPyNavPreset.h" />
 		<Unit filename="src/core/scripting/VRPyNavigator.cpp" />
@@ -645,6 +663,10 @@
 		<Unit filename="src/core/setup/windows/VRWindow.h" />
 		<Unit filename="src/core/setup/windows/VRWindowManager.cpp" />
 		<Unit filename="src/core/setup/windows/VRWindowManager.h" />
+		<Unit filename="src/core/tools/VRAnalyticGeometry.cpp" />
+		<Unit filename="src/core/tools/VRAnalyticGeometry.h" />
+		<Unit filename="src/core/tools/VRAnnotationEngine.cpp" />
+		<Unit filename="src/core/tools/VRAnnotationEngine.h" />
 		<Unit filename="src/core/tools/VRClipPlane.cpp" />
 		<Unit filename="src/core/tools/VRClipPlane.h" />
 		<Unit filename="src/core/tools/VRColorChooser.cpp" />

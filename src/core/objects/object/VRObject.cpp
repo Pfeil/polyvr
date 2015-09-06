@@ -78,19 +78,19 @@ VRObject* VRObject::hasAncestorWithAttachment(string name) {
     return parent->hasAncestorWithAttachment(name);
 }
 
-void VRObject::setCore(NodeCoreRecPtr c, string _type) {
-    if (specialized) {
+void VRObject::setCore(NodeCoreRecPtr c, string _type, bool force) {
+    if (specialized && !force) {
         cout << "\nError, Object allready specialized, skip setCore()\n";
         return;
     }
 
     type = _type;
-
     node->setCore(c);
-
     specialized = true;
 }
 
+void VRObject::setPersistency(int p) { persistency = p; }
+int VRObject::getPersistency() { return persistency; }
 
 /** Returns the object OSG core **/
 NodeCoreRecPtr VRObject::getCore() { return node->getCore(); }
@@ -257,6 +257,15 @@ VRObject* VRObject::find(string Name) {
         if (tmp != 0) return tmp;
     }
     return 0;
+}
+
+vector<VRObject*> VRObject::findAll(string Name, vector<VRObject*> res ) {
+    if (base_name == Name) res.push_back(this);
+    for (auto c : children) {
+        if (c == this) continue; // workaround! TODO: find why this can happn
+        res = c->findAll(Name, res);
+    }
+    return res;
 }
 
 VRObject* VRObject::find(int id) {

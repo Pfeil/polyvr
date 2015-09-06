@@ -66,6 +66,7 @@ PyMethodDef VRPyObject::methods[] = {
     {"getChildren", (PyCFunction)VRPyObject::getChildren, METH_VARARGS, "Return the list of children objects\n\t - getChildren() : return immediate children\n\t - getChildren(bool recursive) : if true returns whole subtree\n\t - getChildren(bool recursive, str type) : filter by type" },
     {"getParent", (PyCFunction)VRPyObject::getParent, METH_NOARGS, "Return parent object" },
     {"find", (PyCFunction)VRPyObject::find, METH_VARARGS, "Find node with given name (str) in scene graph below this node" },
+    {"findAll", (PyCFunction)VRPyObject::findAll, METH_VARARGS, "Find node with given base name (str) in scene graph below this node" },
     {"isPickable", (PyCFunction)VRPyObject::isPickable, METH_NOARGS, "Return if the object is pickable" },
     {"setPickable", (PyCFunction)VRPyObject::setPickable, METH_VARARGS, "Set if the object is pickable" },
     {"printOSG", (PyCFunction)VRPyObject::printOSG, METH_NOARGS, "Print the OSG structure to console" },
@@ -76,8 +77,21 @@ PyMethodDef VRPyObject::methods[] = {
     {"hasAncestorWithTag", (PyCFunction)VRPyObject::hasAncestorWithTag, METH_VARARGS, "Check if the object or an ancestor has a tag - obj hasAncestorWithTag( str tag )" },
     {"getChildrenWithTag", (PyCFunction)VRPyObject::getChildrenWithTag, METH_VARARGS, "Get all children which have the tag - [objs] getChildrenWithTag( str tag )" },
     {"setTravMask", (PyCFunction)VRPyObject::setTravMask, METH_VARARGS, "Set the traversal mask of the object - setTravMask( int mask )" },
+    {"setPersistency", (PyCFunction)VRPyObject::setPersistency, METH_VARARGS, "Set the persistency level - setPersistency( int persistency )\n   0: not persistent\n   1: persistent hiarchy\n   2: transformation\n   3: geometry\n   4: fully persistent" },
+    {"getPersistency", (PyCFunction)VRPyObject::getPersistency, METH_NOARGS, "Get the persistency level - getPersistency()" },
     {NULL}  /* Sentinel */
 };
+
+PyObject* VRPyObject::setPersistency(VRPyObject* self, PyObject* args) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyObject::setPersistency - C Object is invalid"); return NULL; }
+    self->obj->setPersistency( parseInt(args) );
+    Py_RETURN_TRUE;
+}
+
+PyObject* VRPyObject::getPersistency(VRPyObject* self) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyObject::getPersistency - C Object is invalid"); return NULL; }
+    return PyInt_FromLong( self->obj->getPersistency() );
+}
 
 PyObject* VRPyObject::getChildrenWithTag(VRPyObject* self, PyObject* args) {
     if (self->obj == 0) { PyErr_SetString(err, "VRPyObject::getChildrenWithTag - C Object is invalid"); return NULL; }
@@ -232,7 +246,7 @@ PyObject* VRPyObject::switchParent(VRPyObject* self, PyObject* args, PyObject *k
 PyObject* VRPyObject::duplicate(VRPyObject* self) {
     if (self->obj == 0) { PyErr_SetString(err, "C Child is invalid"); return NULL; }
     OSG::VRObject* d = (OSG::VRObject*)self->obj->duplicate(true);
-    d->addAttachment("dynamicaly_generated", 0);
+    d->setPersistency(0);
     return VRPyTypeCaster::cast(d);
 }
 
@@ -278,6 +292,20 @@ PyObject* VRPyObject::find(VRPyObject* self, PyObject* args) {
     OSG::VRObject* c = self->obj->find(name);
     if (c) { return VRPyTypeCaster::cast(c); }
     else { Py_RETURN_NONE; }
+}
+
+PyObject* VRPyObject::findAll(VRPyObject* self, PyObject* args) {
+	if (self->obj == 0) { PyErr_SetString(err, "VRPyObject::find, C object is invalid"); return NULL; }
+
+    string name = parseString(args);
+    vector<OSG::VRObject*> objs = self->obj->findAll(name);
+
+    PyObject* li = PyList_New(objs.size());
+    for (uint i=0; i<objs.size(); i++) {
+        PyList_SetItem(li, i, VRPyTypeCaster::cast(objs[i]));
+    }
+
+    return li;
 }
 
 PyObject* VRPyObject::isPickable(VRPyObject* self) {

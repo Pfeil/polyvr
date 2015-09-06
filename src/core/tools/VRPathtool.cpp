@@ -1,6 +1,7 @@
 #include "VRPathtool.h"
 #include "core/math/path.h"
 #include "core/objects/geometry/VRGeometry.h"
+#include "core/objects/geometry/VRStroke.h"
 #include "core/objects/material/VRMaterial.h"
 #include "core/scene/VRScene.h"
 #include "core/scene/VRSceneManager.h"
@@ -39,10 +40,11 @@ void VRPathtool::addPath(path* p, VRObject* anchor) {
     }
 }
 
-path* VRPathtool::newPath(VRDevice* dev, VRObject* anchor) {
+path* VRPathtool::newPath(VRDevice* dev, VRObject* anchor, int resolution) {
     entry* e = new entry();
     e->anchor = anchor;
     e->p = new path();
+    e->resolution = resolution;
     paths[e->p] = e;
 
     extrude(0,e->p);
@@ -57,7 +59,7 @@ VRGeometry* VRPathtool::newHandle() {
     h->setMaterial(VRMaterial::get("pathHandle"));
     h->getMaterial()->setDiffuse(Vec3f(0.5,0.5,0.9));
     //calcFaceNormals(h->getMesh()); // not working ??
-    h->addAttachment("dynamicaly_generated", 0);
+    h->setPersistency(0);
     return h;
 }
 
@@ -82,8 +84,17 @@ vector<VRGeometry*> VRPathtool::getHandles(path* p) {
     return res;
 }
 
-void VRPathtool::extrude(VRDevice* dev, path* p) {
-    if (paths.count(p) == 0) return;
+VRStroke* VRPathtool::getStroke(path* p) {
+    if (paths.count(p) == 0) return 0;
+    return paths[p]->line;
+}
+
+VRGeometry* VRPathtool::extrude(VRDevice* dev, path* p) {
+    if (paths.count(p) == 0) {
+        cout << "Warning: VRPathtool::extrude, path " << p << " unknown\n";
+        return 0;
+    }
+
     entry* e = paths[p];
     e->p->addPoint(Vec3f(0,0,-1), Vec3f(1,0,0), Vec3f(1,1,1));
 
@@ -97,6 +108,22 @@ void VRPathtool::extrude(VRDevice* dev, path* p) {
     }
 
     updateHandle(h);
+    return h;
+}
+
+void VRPathtool::clear(path* p) {
+    if (paths.count(p) == 0) return;
+    entry* e = paths[p];
+
+    for (auto h : e->handles) {
+        handles_dict.erase(h.first);
+        delete h.first;
+    }
+    e->handles.clear();
+    delete e->line;
+    e->line = 0;
+
+    p->clear();
 }
 
 void VRPathtool::remPath(path* p) {
@@ -117,30 +144,27 @@ void VRPathtool::updateHandle(VRGeometry* handle) {
     int hN = e->handles.size();
     if (hN <= 0) return;
 
-    e->p->compute(5*hN);
+    e->p->compute(e->resolution);
     int pN = e->p->getPositions().size();
     if (pN <= 2) return;
 
     // update path line
     if (e->line == 0) {
-        e->line = new VRGeometry("path");
-        e->line->addAttachment("dynamicaly_generated", 0);
+        e->line = new VRStroke("path");
+        e->line->setPersistency(0);
         VRMaterial* matl = new VRMaterial("pline");
         matl->setLit(false);
         matl->setDiffuse(Vec3f(0.1,0.9,0.2));
         matl->setLineWidth(3);
-        e->anchor->addChild(e->line);
-        e->line->setType(GL_LINE_STRIP);
         e->line->setMaterial(matl);
+        e->anchor->addChild(e->line);
+        vector<Vec3f> profile;
+        profile.push_back(Vec3f());
+        e->line->addPath(e->p);
+        e->line->strokeProfile(profile, 0);
     }
 
-    GeoUInt32PropertyRecPtr Length = GeoUInt32Property::create();
-    GeoPnt3fPropertyRecPtr Pos = GeoPnt3fProperty::create();
-    Length->addValue(pN);
-    for (Vec3f p : e->p->getPositions()) Pos->addValue(p);
-
-    e->line->setPositions(Pos);
-    e->line->setLengths(Length);
+    e->line->update();
 }
 
 void VRPathtool::updateDevs() {
@@ -152,9 +176,9 @@ void VRPathtool::updateDevs() {
     }
 }
 
-void VRPathtool::setVisible(bool b) {
-    for (auto p : paths) p.second->line->setVisible(b);
-    for (auto h : handles_dict) h.first->setVisible(b);
+void VRPathtool::setVisible(bool handles, bool lines) {
+    for (auto p : paths) if (p.second->line) p.second->line->setVisible(lines);
+    for (auto h : handles_dict) h.first->setVisible(handles);
 }
 
 void VRPathtool::select(VRGeometry* h) {

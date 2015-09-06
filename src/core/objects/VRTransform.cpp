@@ -258,6 +258,13 @@ Vec3f VRTransform::getWorldDirection(bool parentOnly) {
     return Vec3f(m[2]);
 }
 
+/** Returns the world direction vector (not normalized) **/
+Vec3f VRTransform::getWorldUp(bool parentOnly) {
+    Matrix m;
+    getWorldMatrix(m, parentOnly);
+    return Vec3f(m[1]);
+}
+
 /** Set the object fixed || not **/
 void VRTransform::setFixed(bool b) {
     if (b == fixed) return;
@@ -734,6 +741,7 @@ void VRTransform::update() {
 
 void VRTransform::saveContent(xmlpp::Element* e) {
     VRObject::saveContent(e);
+    if (getPersistency() < 2) return;
 
     e->set_attribute("from", toString(_from).c_str());
     e->set_attribute("at", toString(_at).c_str());
@@ -774,12 +782,13 @@ void VRTransform::loadContent(xmlpp::Element* e) {
 
 void setFromPath(VRTransform* tr, path* p, bool redirect, float t) {
     tr->setFrom( p->getPosition(t) );
-    if (redirect) {
-        Vec3f d,u;
-        p->getOrientation(t, d, u);
-        tr->setDir( d );
-        tr->setUp( u );
-    }
+    if (!redirect) return;
+
+    Vec3f d,u;
+    p->getOrientation(t, d, u);
+    tr->setUp( u );
+    if (tr->get_orientation_mode() == VRTransform::OM_DIR) tr->setDir( d );
+    if (tr->get_orientation_mode() == VRTransform::OM_AT) tr->setAt( p->getColor(t) );
 }
 
 void VRTransform::addAnimation(VRAnimation* anim) { animations[anim->getName()] = anim; }
@@ -789,11 +798,12 @@ vector<VRAnimation*> VRTransform::getAnimations() {
     return res;
 }
 
-void VRTransform::startPathAnimation(path* p, float time, float offset, bool redirect, bool loop) {
+VRAnimation* VRTransform::startPathAnimation(path* p, float time, float offset, bool redirect, bool loop) {
     VRFunction<float>* fkt = new VRFunction<float>("TransAnim", boost::bind(setFromPath, this, p, redirect, _1));
     VRScene* scene = VRSceneManager::getCurrent();
     VRAnimation* a = scene->addAnimation(time, offset, fkt, 0.f, 1.f, loop);
     addAnimation(a);
+    return a;
 }
 
 void VRTransform::stopAnimation() {

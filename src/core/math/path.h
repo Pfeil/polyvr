@@ -56,8 +56,10 @@ class path {
         Vec3f getColor(float t);
 
         float getLength();
+        int size();
 
         void update();
+        void clear();
 };
 
 OSG_END_NAMESPACE;

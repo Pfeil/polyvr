@@ -87,8 +87,13 @@ void FNode::set(FObject* o) {
     if (o->getType() == FObject::PRODUCT) setState(PRODUCT);
     if (o->getTransformation() == 0) return;
 
-    getTransform()->addChild(o->getTransformation());
-    o->getTransformation()->setMatrix(OSG::Matrix());
+    auto t = o->getTransformation();
+    Matrix wm;
+    wm = t->getWorldMatrix();
+    t->switchParent(getTransform());
+    wm.setTranslate(getTransform()->getWorldPosition());
+    t->setWorldMatrix(wm);
+    t->update();
 }
 
 void FNode::connect(FNode* n) {
@@ -190,11 +195,17 @@ void FContainer::setCapacity(int i) { capacity = i; }
 int FContainer::getCapacity() { return capacity; }
 
 void FContainer::add(FProduct* p) {
-    //p->getTransformation()->setMatrix(getTransformation()->getMatrix());
-    getTransformation()->addChild(p->getTransformation());
-    p->getTransformation()->hide();
+    auto t = p->getTransformation();
+    t->hide();
     products.push_back(p);
     setMetaData("Nb: " + toString(products.size()));
+
+    Matrix wm;
+    wm = t->getWorldMatrix();
+    t->switchParent(getTransformation());
+    wm.setTranslate(getTransformation()->getWorldPosition());
+    t->setWorldMatrix(wm);
+    t->update();
 }
 
 FProduct* FContainer::pop() {
@@ -204,6 +215,11 @@ FProduct* FContainer::pop() {
     p->getTransformation()->show();
     setMetaData("Nb: " + toString(products.size()));
     //p->setMetaData("ID: " + toString(p->getID()));
+    return p;
+}
+
+FProduct* FContainer::peek() {
+    FProduct* p = products.back();
     return p;
 }
 
@@ -395,7 +411,7 @@ VRStroke* FNetwork::stroke(Vec3f c, float k) {
     profile.push_back(Vec3f(-k*0.5,k,0));
     profile.push_back(Vec3f(k*0.5,k,0));
     profile.push_back(Vec3f(k,0,0));
-    stroke->strokeProfile(profile, true, false);
+    stroke->strokeProfile(profile, true);
     return stroke;
 }
 
@@ -444,7 +460,7 @@ FContainer* FLogistics::addContainer(VRTransform* t) {
     FContainer* c = new FContainer();
     t = (VRTransform*)t->duplicate(true);
     t->setVisible(true);
-    t->addAttachment("dynamicaly_generated", 0);
+    t->setPersistency(0);
     c->setTransformation(t);
     objects[c->getID()] = c;
     return c;
@@ -455,7 +471,7 @@ void FLogistics::fillContainer(FContainer* c, int N, VRTransform* t) {
         FProduct* p = addProduct();
         t = (VRTransform*)t->duplicate(true);
         t->setVisible(true);
-        t->addAttachment("dynamicaly_generated", 0);
+        t->setPersistency(0);
         p->setTransformation(t);
         c->add( p );
     }

@@ -25,6 +25,8 @@ VRSnappingEngine* VRConstructionKit::getSnappingEngine() { return snapping; }
 VRSelector* VRConstructionKit::getSelector() { return selector; }
 
 void VRConstructionKit_on_snap(VRConstructionKit* kit, VRSnappingEngine::EventSnap* e) {
+    if (e->snap == 0) { kit->breakup(e->o1); return; }
+
     if (e->o1 == 0 || e->o2 == 0) return;
     VRObject* p1 = e->o1->getDragParent();
     VRObject* p2 = e->o2->getParent();
@@ -40,7 +42,7 @@ void VRConstructionKit_on_snap(VRConstructionKit* kit, VRSnappingEngine::EventSn
     }
 
     VRTransform* group = new VRTransform("kit_group");
-    group->addAttachment("dynamicaly_generated", 0);
+    group->setPersistency(0);
     group->setPickable(true);
     group->addAttachment("kit_group", 0);
     p2->addChild(group);
@@ -58,13 +60,23 @@ int VRConstructionKit::ID() {
     return i;
 }
 
-void VRConstructionKit::breakup(VRObject* obj) {
+void VRConstructionKit::breakup(VRTransform* obj) {
     if (obj == 0) return;
+
     auto p = obj->getParent();
-    if (!p->hasAttachment("kit_group")) return;
-    p = p->getParent();
-    obj->switchParent(p);
-    obj->setPickable(true);
+    if (p == 0) return;
+    if (p->hasAttachment("kit_group")) {
+        obj->switchParent( p->getParent() );
+        obj->setPickable(true);
+        return;
+    }
+
+    p = obj->getDragParent();
+    if (p == 0) return;
+    if (p->hasAttachment("kit_group")) {
+        obj->rebaseDrag( p->getParent() );
+        obj->setPickable(true);
+    }
 }
 
 int VRConstructionKit::addAnchorType(float size, Vec3f color) {
@@ -84,13 +96,14 @@ void VRConstructionKit::addObject(VRTransform* t) {
     snapping->addObject(t);
 }
 
-void VRConstructionKit::addObjectAnchor(VRTransform* t, int a, Vec3f pos, float radius) {
+VRGeometry* VRConstructionKit::addObjectAnchor(VRTransform* t, int a, Vec3f pos, float radius) {
     VRGeometry* anc = (VRGeometry*)anchors[a]->duplicate();
     anc->setPose(pos, Vec3f(0,1,0), Vec3f(1,0,0));
     anc->show();
     anc->switchParent(t);
     snapping->addObjectAnchor(t, anc);
     snapping->addRule(VRSnappingEngine::POINT, VRSnappingEngine::POINT, Line(Pnt3f(pos), Vec3f(0,0,0)), Line(Pnt3f(0,1,0), Vec3f(1,0,0)), radius, 1, t );
+    return anc;
 }
 
 OSG_END_NAMESPACE;

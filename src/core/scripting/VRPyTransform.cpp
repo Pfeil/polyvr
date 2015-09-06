@@ -6,6 +6,7 @@
 #include "core/objects/geometry/VRPhysics.h"
 #include "core/objects/geometry/VRConstraint.h"
 #include "core/objects/VRAnimation.h"
+#include "core/setup/devices/VRIntersect.h"
 
 template<> PyTypeObject VRPyBaseT<OSG::VRTransform>::type = {
     PyObject_HEAD_INIT(NULL)
@@ -72,6 +73,7 @@ PyMethodDef VRPyTransform::methods[] = {
     {"setFrom", (PyCFunction)VRPyTransform::setFrom, METH_VARARGS, "Set the object's from vector" },
     {"setAt", (PyCFunction)VRPyTransform::setAt, METH_VARARGS, "Set the object's at vector" },
     {"setDir", (PyCFunction)VRPyTransform::setDir, METH_VARARGS, "Set the object's dir vector" },
+    {"setEuler", (PyCFunction)VRPyTransform::setEuler, METH_VARARGS, "Set the object's orientation using Euler angles - setEuler(x,y,z)" },
     {"setUp", (PyCFunction)VRPyTransform::setUp, METH_VARARGS, "Set the object's up vector" },
     {"setScale", (PyCFunction)VRPyTransform::setScale, METH_VARARGS, "Set the object's scale vector" },
     {"setPickable", (PyCFunction)VRPyTransform::setPickable, METH_VARARGS, "Set the object pickable - setPickable(True/False)" },
@@ -80,8 +82,10 @@ PyMethodDef VRPyTransform::methods[] = {
     {"setRotationConstraints", (PyCFunction)VRPyTransform::setRotationConstraints, METH_VARARGS, "Constraint the object's rotation - setRotationConstraints(xi, yi, zi)" },
     {"physicalize", (PyCFunction)VRPyTransform::physicalize, METH_VARARGS, "physicalize subtree - physicalize( physicalized , dynamic , concave )" },
     {"setGhost", (PyCFunction)VRPyTransform::setGhost, METH_VARARGS, "Set the physics object to be a ghost object - setGhost(bool)" },
-    {"setSoft", (PyCFunction)VRPyTransform::setSoft, METH_VARARGS, "Set the physics object to be a soft body - setSoft(bool)" },
-    {"attach", (PyCFunction)VRPyTransform::setPhysicsConstraintTo, METH_VARARGS, "create a constraint between this object and another - attach( Transform , Constraint, Spring )" },
+    {"attach", (PyCFunction)VRPyTransform::setPhysicsConstraintTo, METH_VARARGS,
+        "create a constraint between this object and another - \n"
+        " For rigid bodies: attach( Transform , VRConstraint constraint, VRConstraint spring )\n"
+        " For soft bodies: attach( Transform, int nodeIndex, local pivot [x,y,z], bool ignoreCollision, float influence" },
     {"detach", (PyCFunction)VRPyTransform::deletePhysicsConstraints, METH_VARARGS, "delete constraint made to this transform with given transform through attach(toTransform). Example call : trans1.detach(trans2)" },
     {"setMass", (PyCFunction)VRPyTransform::setMass, METH_VARARGS, "Set the mass of the physics object" },
     {"setCollisionMargin", (PyCFunction)VRPyTransform::setCollisionMargin, METH_VARARGS, "Set the collision margin of the physics object" },
@@ -90,6 +94,7 @@ PyMethodDef VRPyTransform::methods[] = {
     {"setCollisionShape", (PyCFunction)VRPyTransform::setCollisionShape, METH_VARARGS, "Set the collision mask of the physics object" },
     {"getCollisions", (PyCFunction)VRPyTransform::getCollisions, METH_NOARGS, "Return the current collisions with other objects" },
     {"applyImpulse", (PyCFunction)VRPyTransform::applyImpulse, METH_VARARGS, "Apply impulse on the physics object" },
+    {"applyTorqueImpulse", (PyCFunction)VRPyTransform::applyTorqueImpulse, METH_VARARGS, "Apply torque impulse on the physics object" },
     {"applyForce", (PyCFunction)VRPyTransform::applyForce, METH_VARARGS, "Apply force on the physics object (e.g. obj.applyForce(1.0,0.0,0.0) )" },
     {"applyTorque", (PyCFunction)VRPyTransform::applyTorque, METH_VARARGS, "Apply torque on the physics object  (e.g. obj.applyTorque(1.0,0.0,0.0) )" },
     {"applyConstantForce", (PyCFunction)VRPyTransform::applyConstantForce, METH_VARARGS, "Apply a constant force on the physics object (e.g. obj.applyConstantForce(1.0,0.0,0.0) )" },
@@ -97,15 +102,56 @@ PyMethodDef VRPyTransform::methods[] = {
     {"getForce", (PyCFunction)VRPyTransform::getForce, METH_NOARGS, "get the total force put on this transform during this frame. returns 3-Tuple" },
     {"getTorque", (PyCFunction)VRPyTransform::getTorque, METH_NOARGS, "get the total torque put on this transform during this frame. returns 3-Tuple" },
     {"setPhysicsActivationMode", (PyCFunction)VRPyTransform::setPhysicsActivationMode, METH_VARARGS, "Set the physics activation mode of the physics object (normal:1 , no deactivation:4, stay deactivated: 5)" },
-    {"animate", (PyCFunction)VRPyTransform::animate, METH_VARARGS, "Animate object (currently only with a path: animate(path, duration, redirect) )" },
+    {"animate", (PyCFunction)VRPyTransform::animate, METH_VARARGS, "Animate object along a path:\n "
+                                                                    "animate(path, float duration [s], float offset [s], bool redirect) )\n"
+                                                                    "animate(path, float duration [s], float offset [s], bool redirect, bool loop) )" },
     {"getAnimations", (PyCFunction)VRPyTransform::getAnimations, METH_NOARGS, "Return all animations associated to the object" },
     {"animationStop", (PyCFunction)VRPyTransform::animationStop, METH_NOARGS, "Stop any running animation of this object" },
     {"setGravity", (PyCFunction)VRPyTransform::setGravity, METH_VARARGS, "set Gravity (Vector) of given physicalized object" },
     {"getConstraintAngleWith", (PyCFunction)VRPyTransform::getConstraintAngleWith, METH_VARARGS, "return the relative rotation Angles/position diffs (Vector3) to the given constraint partner (if there is one, otherwise return (0.0,0.0,0.0)) example: transform.getConstraintAngleWith(othertransform, 0) returns rotationAngles  (0:rotation , 1:position)"  },
     {"setDamping", (PyCFunction)VRPyTransform::setDamping, METH_VARARGS, "sets the damping of this object. 1st param is the linear, 2nd the angular damping. e.g. physicalizedObject.setDamping(0.4,0.5)"  },
-    {"applyChange", (PyCFunction)VRPyTransform::applyChange, METH_VARARGS, "Apply all changes"  },
+    {"applyChange", (PyCFunction)VRPyTransform::applyChange, METH_NOARGS, "Apply all changes"  },
+    {"setCenterOfMass", (PyCFunction)VRPyTransform::setCenterOfMass, METH_VARARGS, "Set a custom center of mass - setCenterOfMass([x,y,z])"  },
+    {"drag", (PyCFunction)VRPyTransform::drag, METH_VARARGS, "Drag this object by new parent - drag(new parent)"  },
+    {"drop", (PyCFunction)VRPyTransform::drop, METH_NOARGS, "Drop this object, if held, to old parent - drop()"  },
+    {"castRay", (PyCFunction)VRPyTransform::castRay, METH_VARARGS, "Cast a ray and return the intersection - castRay(obj, dir)"  },
     {NULL}  /* Sentinel */
 };
+
+PyObject* VRPyTransform::castRay(VRPyTransform* self, PyObject* args) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::castRay, Object is invalid"); return NULL; }
+    VRPyObject* o = 0; PyObject* d;
+    if (! PyArg_ParseTuple(args, "OO", &o, &d)) return NULL;
+    auto line = self->obj->castRay( 0, parseVec3fList(d) );
+    OSG::VRIntersect in;
+    auto i = in.intersect(o->obj, line);
+    return toPyTuple( OSG::Vec3f(i.point) );
+}
+
+PyObject* VRPyTransform::drag(VRPyTransform* self, PyObject* args) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::drag, Object is invalid"); return NULL; }
+    VRPyTransform* t = 0; parseObject(args, t);
+    self->obj->drag( t->obj );
+    Py_RETURN_TRUE;
+}
+
+PyObject* VRPyTransform::drop(VRPyTransform* self) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::drop, Object is invalid"); return NULL; }
+    self->obj->drop();
+    Py_RETURN_TRUE;
+}
+
+PyObject* VRPyTransform::setEuler(VRPyTransform* self, PyObject* args) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setEuler, Object is invalid"); return NULL; }
+    self->obj->setEuler(parseVec3f(args));
+    Py_RETURN_TRUE;
+}
+
+PyObject* VRPyTransform::setCenterOfMass(VRPyTransform* self, PyObject* args) {
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setCenterOfMass, Object is invalid"); return NULL; }
+    self->obj->getPhysics()->setCenterOfMass(parseVec3f(args));
+    Py_RETURN_TRUE;
+}
 
 PyObject* VRPyTransform::applyChange(VRPyTransform* self) {
     if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::applyChange, Object is invalid"); return NULL; }
@@ -135,11 +181,6 @@ PyObject* VRPyTransform::setGhost(VRPyTransform* self, PyObject* args) {
     Py_RETURN_TRUE;
 }
 
-PyObject* VRPyTransform::setSoft(VRPyTransform* self, PyObject* args) {
-    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setSoft, Object is invalid"); return NULL; }
-    self->obj->getPhysics()->setSoft(parseBool(args));
-    Py_RETURN_TRUE;
-}
 PyObject* VRPyTransform::setDamping(VRPyTransform* self, PyObject* args) {
     if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setDamping, Object is invalid"); return NULL; }
     float lin,ang;
@@ -330,11 +371,25 @@ PyObject* VRPyTransform::physicalize(VRPyTransform* self, PyObject *args) {
     Py_RETURN_TRUE;
 }
 
+
+
 PyObject* VRPyTransform::setPhysicsConstraintTo(VRPyTransform* self, PyObject *args) {
-    VRPyTransform *t; VRPyConstraint *c; VRPyConstraint *cs;
-    if (! PyArg_ParseTuple(args, "OOO", &t, &c, &cs)) return NULL;
-    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setPhysicsConstraintTo: C Object is invalid"); return NULL; }
-    self->obj->getPhysics()->setConstraint( t->obj->getPhysics(), c->obj, cs->obj );
+    //if this is soft, the args have to be: RigidBody other, int nodeIndex, vec3 localpivot, bool ignoreCollision, float influence
+    VRPyTransform *t;
+    if(self->obj->getPhysics()->isSoft()) {
+        int nodeIndex;
+        int ignoreCollision;
+        float influence;
+        PyObject* localPiv;
+        if (! PyArg_ParseTuple(args, "OiOif", &t, &nodeIndex, &localPiv, &ignoreCollision, &influence)) return NULL;
+        self->obj->getPhysics()->setConstraint(t->obj->getPhysics(), nodeIndex, parseVec3fList(localPiv), ignoreCollision, influence);
+    }
+    else {
+        VRPyTransform *t; VRPyConstraint *c; VRPyConstraint *cs;
+        if (! PyArg_ParseTuple(args, "OOO", &t, &c, &cs)) return NULL;
+        if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::setPhysicsConstraintTo: C Object is invalid"); return NULL; }
+        self->obj->getPhysics()->setConstraint( t->obj->getPhysics(), c->obj, cs->obj );
+    }
     Py_RETURN_TRUE;
 }
 
@@ -387,6 +442,13 @@ PyObject* VRPyTransform::applyImpulse(VRPyTransform* self, PyObject *args) {
     OSG::Vec3f i = parseVec3f(args);
     if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::applyImpulse: C Object is invalid"); return NULL; }
     self->obj->getPhysics()->applyImpulse(i);
+    Py_RETURN_TRUE;
+}
+
+PyObject* VRPyTransform::applyTorqueImpulse(VRPyTransform* self, PyObject *args) {
+    OSG::Vec3f i = parseVec3f(args);
+    if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::applyTorqueImpulse: C Object is invalid"); return NULL; }
+    self->obj->getPhysics()->applyTorqueImpulse(i);
     Py_RETURN_TRUE;
 }
 
@@ -447,8 +509,8 @@ PyObject* VRPyTransform::animate(VRPyTransform* self, PyObject *args) {
         if (! PyArg_ParseTuple(args, "Offii", &path, &t, &o, &b, &l)) return NULL;
 	if (self->obj == 0) { PyErr_SetString(err, "VRPyTransform::animate: C Object is invalid"); return NULL; }
 	if (path == 0) { PyErr_SetString(err, "VRPyTransform::animate: path is invalid"); return NULL; }
-    self->obj->startPathAnimation(path->obj, t, o, b, l);
-    Py_RETURN_TRUE;
+    auto anim = self->obj->startPathAnimation(path->obj, t, o, b, l);
+    return VRPyAnimation::fromPtr(anim);
 }
 
 PyObject* VRPyTransform::getAnimations(VRPyTransform* self) {

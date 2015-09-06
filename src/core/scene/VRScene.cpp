@@ -21,7 +21,6 @@ using namespace std;
 VRScene::VRScene() {
     cout << "Init Scene" << endl;
 
-    root = new VRObject("Root");
     setNameSpace("Scene");
     setName("Scene");
 
@@ -56,10 +55,9 @@ VRScene::~VRScene() {
     VRThreadManager::stopThread(physicsThreadID);
     updateObjects();
     root->destroy();
+    root_system->destroy();
     VRGroup::clearGroups();
     VRLightBeacon::getAll().clear();
-    VRCamera::getAll().clear();
-
 }
 
 void VRScene::initDevices() { // TODO: remove this after refactoring the navigation stuff
@@ -135,14 +133,16 @@ VRObject* VRScene::get(string name) {
     return o;
 }
 
-void VRScene::setActiveCamera(int i) {
-    VRCameraManager::setActiveCamera(i);
+void VRScene::setActiveCamera(string camname) {
+    setMActiveCamera(camname);
     VRSetup* setup = VRSetupManager::getCurrent();
 
     // TODO: refactor the following workaround
     VRCamera* cam = getActiveCamera();
     if (cam == 0) return;
     cout << " set active camera to " << cam->getName() << endl;
+
+    setDSCamera(cam);
 
     VRMouse* mouse = (VRMouse*)setup->getDevice("mouse");
     if (mouse) {
@@ -164,6 +164,7 @@ void VRScene::setActiveCamera(int i) {
 }
 
 VRObject* VRScene::getRoot() { return root; }
+VRObject* VRScene::getSystemRoot() { return root_system; }
 
 void VRScene::printTree() { root->printTree(); }
 
@@ -177,15 +178,8 @@ void VRScene::showReferentials(bool b, VRObject* o) {
     for (uint i=0; i<o->getChildrenCount(); i++) showReferentials(b, o->getChild(i));
 }
 
-void VRScene::showLights(bool b) {
-    vector<VRLightBeacon*> beacons = VRLightBeacon::getAll();
-    for (uint i=0; i<beacons.size(); i++) beacons[i]->showLightGeo(b);
-}
-
-void VRScene::showCameras(bool b) {
-    vector<VRCamera*> cams = VRCamera::getAll();
-    for (uint i=0; i<cams.size(); i++) cams[i]->showCamGeo(b);
-}
+void VRScene::showLights(bool b) { for (auto b : VRLightBeacon::getAll()) b->showLightGeo(b); }
+void VRScene::showCameras(bool b) { for (auto c : VRCamera::getAll()) c->showCamGeo(b); }
 
 void VRScene::update() {
     //Vec3f min,max;
@@ -195,14 +189,9 @@ void VRScene::update() {
 }
 
 xmlpp::Element* VRSceneLoader_getElementChild(xmlpp::Element* e, string name) {
-    xmlpp::Node::NodeList nl = e->get_children();
-    xmlpp::Node::NodeList::iterator itr;
-    for (itr = nl.begin(); itr != nl.end(); itr++) {
-        xmlpp::Node* n = *itr;
-
+    for (auto n : e->get_children()) {
         xmlpp::Element* el = dynamic_cast<xmlpp::Element*>(n);
         if (!el) continue;
-
         if (el->get_name() == name) return el;
     }
     return 0;

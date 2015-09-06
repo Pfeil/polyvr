@@ -10,6 +10,7 @@
 #include <OpenSG/OSGConfig.h>
 #include <OpenSG/OSGVector.h>
 #include <OpenSG/OSGLine.h>
+#include "core/utils/VRFunction.h"
 
 using namespace std;
 
@@ -25,6 +26,11 @@ struct VRPyBase {
         if ((PyObject*)t == Py_None) t = 0;
     }
 
+    template <typename T>
+    static void execPyCall(PyObject* pyFkt, PyObject* pArgs, T t);
+    template <typename T>
+    static VRFunction<T>* parseCallback(PyObject *args);
+
     static vector<PyObject*> parseList(PyObject *args);
     static OSG::Vec2f parseVec2f(PyObject *args);
     static OSG::Vec3f parseVec3f(PyObject *args);
@@ -39,7 +45,9 @@ struct VRPyBase {
     static bool isTuple(PyObject* o);
     static int pySize(PyObject* v);
     static PyObject* getItem(PyObject* v, int i);
-    static vector<PyObject*> pyListToVector(PyObject *v);
+    static vector<PyObject*> pyListToVector(PyObject* v);
+    template <class T, class t>
+    static bool pyListToVector(PyObject* data, T& vec);
     static OSG::Vec2f parseVec2fList(PyObject *li);
     static OSG::Vec3f parseVec3fList(PyObject *li);
     static OSG::Vec4f parseVec4fList(PyObject *li);
@@ -50,6 +58,10 @@ struct VRPyBase {
     static PyObject* toPyTuple(OSG::Vec3i v);
     static PyObject* toPyTuple(OSG::Vec2f v);
 
+    static PyObject* toPyObject(float f);
+
+    static int toOSGConst(string cst);
+    static int toOSGConst(PyObject* o);
     static int toGLConst(string cst);
     static int toGLConst(PyObject* o);
     static bool isNone(PyObject* o);
@@ -63,6 +75,8 @@ struct VRPyBaseT : public VRPyBase {
     static PyTypeObject* typeRef;
 
     VRPyBaseT();
+
+    static bool check(PyObject* o);
 
     static PyObject* fromPtr(T* obj);
     static bool      parse(PyObject *args, T** obj);

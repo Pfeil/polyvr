@@ -186,6 +186,7 @@ void VRGuiSetup::updateObjectData() {
 
         if (selected_name == "VRPN") {
             setExpanderSensitivity("expander7", true);
+            setTextEntry("entry13", toString(current_setup->getVRPNPort()));
             setCheckButton("checkbutton25", current_setup->getVRPNActive());
         }
     }
@@ -211,6 +212,7 @@ void VRGuiSetup::updateObjectData() {
 //TODO:
 // - win->init in a thread
 
+string VRGuiSetup::setupDir() { return VRSceneManager::get()->getOriginalWorkdir()+"/setup/"; }
 
 // --------------------------
 // ---------Callbacks--------
@@ -267,10 +269,7 @@ void VRGuiSetup::on_del_clicked() { //TODO, should delete setup
 
 void VRGuiSetup::on_save_clicked() {
     if (current_setup == 0) return;
-
-    string defWorkDir = VRSceneManager::get()->getOriginalWorkdir();
-    current_setup->save(defWorkDir+"/setup/" + current_setup->getName() + ".xml");
-
+    current_setup->save(setupDir() + current_setup->getName() + ".xml");
     setToolButtonSensitivity("toolbutton12", false);
 }
 
@@ -278,9 +277,8 @@ void VRGuiSetup::on_save_clicked() {
 
 void VRGuiSetup::on_setup_changed() {
     string name = getComboboxText("combobox6");
-    ofstream f("setup/.local"); f.write(name.c_str(), name.size()); f.close(); // remember setup
-    string defWorkDir = VRSceneManager::get()->getOriginalWorkdir();
-    current_setup = VRSetupManager::get()->load(name, defWorkDir+"/setup/" + name + ".xml");
+    ofstream f(setupDir()+".local"); f.write(name.c_str(), name.size()); f.close(); // remember setup
+    current_setup = VRSetupManager::get()->load(name, setupDir() + name + ".xml");
     updateSetup();
 }
 
@@ -687,6 +685,13 @@ void VRGuiSetup::on_art_edit_id() {
     setToolButtonSensitivity("toolbutton12", true);
 }
 
+void VRGuiSetup::on_vrpn_edit_port() {
+    if (guard) return;
+    int p = toInt(getTextEntry("entry13"));
+    current_setup->setVRPNPort(p);
+    setToolButtonSensitivity("toolbutton12", true);
+}
+
 void VRGuiSetup::on_edit_VRPN_tracker_address() {
     if (guard) return;
 
@@ -719,6 +724,19 @@ void VRGuiSetup::on_toggle_dev_cross() {
     bool b = getCheckButtonState("checkbutton37");
     VRDevice* dev = (VRDevice*)selected_object;
     dev->showHitPoint(b);
+}
+
+void VRGuiSetup::on_toggle_vrpn_test_server() {
+    if (guard) return;
+    bool b = getCheckButtonState("checkbutton39");
+    if (b) current_setup->startVRPNTestServer();
+    else current_setup->stopVRPNTestServer();
+}
+
+void VRGuiSetup::on_toggle_vrpn_verbose() {
+    if (guard) return;
+    bool b = getCheckButtonState("checkbutton40");
+    current_setup->setVRPNVerbose(b);
 }
 
 // --------------------------
@@ -780,6 +798,7 @@ VRGuiSetup::VRGuiSetup() {
     setEntryCallback("entry56", sigc::mem_fun(*this, &VRGuiSetup::on_pos_edit) );
     setEntryCallback("entry57", sigc::mem_fun(*this, &VRGuiSetup::on_pos_edit) );
     setEntryCallback("entry12", sigc::mem_fun(*this, &VRGuiSetup::on_eyesep_edit) );
+    setEntryCallback("entry13", sigc::mem_fun(*this, &VRGuiSetup::on_vrpn_edit_port) );
     setEntryCallback("entry33", sigc::mem_fun(*this, &VRGuiSetup::on_servern_edit) );
     setEntryCallback("entry34", sigc::mem_fun(*this, &VRGuiSetup::on_servern_edit) );
     setEntryCallback("entry39", sigc::mem_fun(*this, &VRGuiSetup::on_art_edit_port) );
@@ -814,6 +833,8 @@ VRGuiSetup::VRGuiSetup() {
     setCheckButtonCallback("checkbutton26", sigc::mem_fun(*this, &VRGuiSetup::on_toggle_view_user));
     setCheckButtonCallback("checkbutton4", sigc::mem_fun(*this, &VRGuiSetup::on_toggle_view_stats));
     setCheckButtonCallback("checkbutton37", sigc::mem_fun(*this, &VRGuiSetup::on_toggle_dev_cross));
+    setCheckButtonCallback("checkbutton39", sigc::mem_fun(*this, &VRGuiSetup::on_toggle_vrpn_test_server));
+    setCheckButtonCallback("checkbutton40", sigc::mem_fun(*this, &VRGuiSetup::on_toggle_vrpn_verbose));
 
     // primitive list
     fillStringListstore("prim_list", VRPrimitive::getTypes());
@@ -944,12 +965,12 @@ void VRGuiSetup::updateSetupList() {
     Glib::RefPtr<Gtk::ListStore> store = Glib::RefPtr<Gtk::ListStore>::cast_static(VRGuiBuilder()->get_object("setups"));
     store->clear();
 
-    string dir = VRSceneManager::get()->getOriginalWorkdir() + "/setup";
+    string dir = setupDir();
     if (!VRGuiFile::exists(dir)) { cerr << "Error: no local directory setup\n"; return; }
 
     string last;
-    ifstream f(dir+"/.local");
-    if (!f.good()) f.open(dir+"/.default");
+    ifstream f(dir+".local");
+    if (!f.good()) f.open(dir+".default");
     if (!f.good()) { cerr << "Error: no setup file found\n"; return; }
     getline(f, last);
     f.close();
