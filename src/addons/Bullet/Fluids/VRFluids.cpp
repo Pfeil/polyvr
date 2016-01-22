@@ -4,6 +4,7 @@
 
 #include <cmath> // pow(), etc. needed for kernels
 #include <omp.h> // openMP for parallelization
+#include <ctime> // for performance tests
 
 using namespace OSG;
 
@@ -85,6 +86,11 @@ void VRFluids::update(int from, int to) {
 }
 
 inline void VRFluids::updateSPH(int from, int to) {
+    clock_t begin = clock();
+    clock_t after_insert;
+    clock_t after_search;
+    clock_t after_props;
+    clock_t end;
     {
         SphParticle* p;
         BLock lock(mtx());
@@ -96,12 +102,21 @@ inline void VRFluids::updateSPH(int from, int to) {
             btVector3 p_origin = p->body->getWorldTransform().getOrigin();
             ocparticles.add(p_origin[0],p_origin[1],p_origin[2],p);
         }
+        after_insert = clock();
+
+        for (int i=from; i < to; i++) {
+            p = (SphParticle*) particles[i];
+            btVector3 p_origin = p->body->getWorldTransform().getOrigin();
+            p->neighbors = ocparticles.radiusSearch(p_origin[0],p_origin[1],p_origin[2],p->sphArea);
+        }
+        after_search = clock();
 
         #pragma omp parallel for private(p) shared(from, to)
         for (int i=from; i < to; i++) {
             p = (SphParticle*) particles[i];
             sph_calc_properties(p);
         }
+        after_props = clock();
 
         #pragma omp parallel for private(p) shared(from, to)
         for (int i=from; i < to; i++) {
@@ -126,6 +141,29 @@ inline void VRFluids::updateSPH(int from, int to) {
         // btVector3 vis = p->sphViscosityForce;
         // printf("--> (%f,%f,%f) + (%f,%f,%f) << (%f <dens-press> %f), mass(%f)\n",
         //         pf[0], pf[1], pf[2], vis[0],vis[1],vis[2], p->sphDensity/REST_DENSITY, p->sphPressure, p->mass);
+    }
+
+    end = clock();
+    perform_iter++;
+    perform_time          += double(end          - begin)        / CLOCKS_PER_SEC;
+    perform_octree_insert += double(after_insert - begin)        / CLOCKS_PER_SEC;
+    perform_octree_search += double(after_search - after_insert) / CLOCKS_PER_SEC;
+    perform_calc_props    += double(after_props  - after_search) / CLOCKS_PER_SEC;
+    perform_calc_forces   += double(end          - after_props)  / CLOCKS_PER_SEC;
+    if (this->perform_iter >= 500) {
+        perform_time /= perform_iter;
+        perform_octree_insert = (perform_octree_insert / perform_iter) / perform_time;
+        perform_octree_search = (perform_octree_search / perform_iter) / perform_time;
+        perform_calc_props    = (perform_calc_props    / perform_iter) / perform_time;
+        perform_calc_forces   = (perform_calc_forces   / perform_iter) / perform_time;
+        printf("%fs | ins:%f | find:%f | props:%f | forces:%f\n",
+                perform_time, perform_octree_insert, perform_octree_search, perform_calc_props, perform_calc_forces);
+        this->perform_iter = 0;
+        this->perform_time = 0.0;
+        this->perform_octree_insert = 0.0;
+        this->perform_octree_search = 0.0;
+        this->perform_calc_props = 0.0;
+        this->perform_calc_forces = 0.0;
     }
 }
 
@@ -163,7 +201,7 @@ inline void VRFluids::sph_calc_properties(SphParticle* p) { // TODO rename + nei
     p->sphDensity = 0.0;
     btVector3 p_origin = p->body->getWorldTransform().getOrigin();
 
-    p->neighbors = ocparticles.radiusSearch(p_origin[0],p_origin[1],p_origin[2],p->sphArea);
+    //p->neighbors = ocparticles.radiusSearch(p_origin[0],p_origin[1],p_origin[2],p->sphArea);
     for (auto np : p->neighbors) {
         btVector3 n_origin = ((SphParticle*) np)->body->getWorldTransform().getOrigin();
         float kernel = kernel_poly6(p_origin - n_origin, p->sphArea);

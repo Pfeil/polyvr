@@ -55,6 +55,13 @@ class VRFluids : public VRParticles {
         /* The average volume of a particle */
         float particleVolume = 1;
 
+        double perform_time = 0.0;
+        int perform_iter = 0;
+        double perform_octree_insert = 0.0;
+        double perform_octree_search = 0.0;
+        double perform_calc_props = 0.0;
+        double perform_calc_forces = 0.0;
+
         inline void xsph_calc_movement(SphParticle* p, int from, int to);
 
         inline float kernel_poly6(btVector3 distance_vector, float area);
